@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.eggs/
+.venv/
+.env
+*.db
+openapi.json
+.DS_Store
