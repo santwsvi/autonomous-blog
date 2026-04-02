@@ -1,7 +1,9 @@
 """Search API — semantic search across published posts."""
 
 import structlog
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.api.deps import Db
 from app.services.embedding_service import search_similar
@@ -9,14 +11,18 @@ from app.services.embedding_service import search_similar
 logger = structlog.get_logger()
 router = APIRouter(prefix="/search", tags=["search"])
 
+limiter = Limiter(key_func=get_remote_address)
+
 
 @router.get("")
+@limiter.limit("10/minute")
 async def search_posts(
+    request: Request,
     db: Db,
     q: str = Query(..., min_length=2, max_length=500, description="Search query"),
     limit: int = Query(10, ge=1, le=50),
 ) -> dict:
-    """Semantic search across published posts."""
+    """Semantic search across published posts. Rate limited: 10 req/min per IP."""
     results = await search_similar(query=q, db=db, limit=limit)
 
     return {

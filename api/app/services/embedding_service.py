@@ -11,14 +11,17 @@ from app.services.llm_service import get_openai_client
 logger = structlog.get_logger()
 
 EMBEDDING_MODEL = "text-embedding-3-small"
-CHUNK_SIZE = 500  # tokens (~2000 chars)
-CHUNK_OVERLAP = 100  # tokens (~400 chars)
+CHUNK_MAX_CHARS = 2000
+CHUNK_OVERLAP_CHARS = 400
 
 
 async def embed_text(content: str) -> list[float]:
     """Generate embedding vector for a text string."""
+    if not content or not content.strip():
+        raise ValueError("Cannot embed empty content")
+
     client = get_openai_client()
-    response = await client.embeddings.create(model=EMBEDDING_MODEL, input=content)
+    response = await client.embeddings.create(model=EMBEDDING_MODEL, input=content.strip())
     return response.data[0].embedding
 
 
@@ -27,10 +30,14 @@ async def embed_post(*, post_id: uuid.UUID, content: str, db: AsyncSession) -> i
 
     Returns the number of chunks created.
     """
+    if not content or not content.strip():
+        logger.warning("embed_post_empty_content", post_id=str(post_id))
+        return 0
+
     # Remove existing embeddings for this post
     await db.execute(text("DELETE FROM embeddings WHERE post_id = :pid"), {"pid": post_id})
 
-    chunks = _chunk_text(content)
+    chunks = chunk_text(content)
     if not chunks:
         logger.warning("embed_post_no_chunks", post_id=str(post_id))
         return 0
@@ -66,7 +73,10 @@ async def embed_post(*, post_id: uuid.UUID, content: str, db: AsyncSession) -> i
 async def search_similar(
     *, query: str, db: AsyncSession, limit: int = 5, exclude_post_id: uuid.UUID | None = None
 ) -> list[dict]:
-    """Search for similar content using cosine similarity."""
+    """Search for similar content using cosine similarity (exact scan, no index)."""
+    if not query or not query.strip():
+        return []
+
     query_vector = await embed_text(query)
     vector_str = "[" + ",".join(str(v) for v in query_vector) + "]"
 
@@ -105,8 +115,12 @@ async def search_similar(
     ]
 
 
-def _chunk_text(content: str, chunk_size: int = 2000, overlap: int = 400) -> list[str]:
+def chunk_text(content: str, chunk_size: int = CHUNK_MAX_CHARS, overlap: int = CHUNK_OVERLAP_CHARS) -> list[str]:
     """Split text into overlapping chunks by character count."""
+    content = content.strip()
+    if not content:
+        return []
+
     if len(content) <= chunk_size:
         return [content]
 

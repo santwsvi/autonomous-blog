@@ -56,6 +56,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Header />
+          <SearchDialog />
           <main className="flex-1">{children}</main>
           <Footer />
         </ThemeProvider>

@@ -1,10 +1,11 @@
+import asyncio
 import math
 import uuid
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.api.deps import Auth, Db, PostRepo
+from app.api.deps import Auth, PostRepo
 from app.models.post import PostStatus
 from app.schemas.post import (
     PostCreate,
@@ -58,7 +59,7 @@ async def create_post(body: PostCreate, repo: PostRepo, _user: Auth) -> PostResp
 
 
 @router.patch("/{post_id}", response_model=PostResponse)
-async def update_post(post_id: uuid.UUID, body: PostUpdate, repo: PostRepo, db: Db, _user: Auth) -> PostResponse:
+async def update_post(post_id: uuid.UUID, body: PostUpdate, repo: PostRepo, _user: Auth) -> PostResponse:
     post = await repo.get_by_id(post_id)
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
@@ -75,17 +76,11 @@ async def update_post(post_id: uuid.UUID, body: PostUpdate, repo: PostRepo, db: 
     was_draft = post.status != PostStatus.PUBLISHED
     post = await repo.update(post, **update_data)
 
-    # Auto-embed when publishing (or when content changes on a published post)
+    # Auto-embed in background when publishing (non-blocking)
     is_now_published = post.status == PostStatus.PUBLISHED
     content_changed = "content_mdx" in update_data
     if is_now_published and (was_draft or content_changed):
-        try:
-            from app.services.embedding_service import embed_post
-
-            await embed_post(post_id=post.id, content=post.content_mdx, db=db)
-            logger.info("post_embedded_on_publish", post_id=str(post.id))
-        except Exception:
-            logger.warning("post_embed_failed_on_publish", post_id=str(post.id))
+        _schedule_embedding(str(post.id), post.content_mdx)
 
     logger.info("post_updated", post_id=str(post.id))
     return PostResponse.model_validate(post)
@@ -98,3 +93,28 @@ async def delete_post(post_id: uuid.UUID, repo: PostRepo, _user: Auth) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
     await repo.delete(post)
     logger.info("post_deleted", post_id=str(post.id))
+
+
+# --- Background embedding ---
+
+_bg_tasks: set[asyncio.Task] = set()
+
+
+def _schedule_embedding(post_id: str, content: str) -> None:
+    """Fire-and-forget embedding — doesn't block the HTTP response."""
+    task = asyncio.create_task(_embed_in_background(post_id, content))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
+
+
+async def _embed_in_background(post_id: str, content: str) -> None:
+    from app.db.session import async_session
+    from app.services.embedding_service import embed_post
+
+    try:
+        async with async_session() as db:
+            await embed_post(post_id=uuid.UUID(post_id), content=content, db=db)
+            await db.commit()
+            logger.info("post_embedded_background", post_id=post_id)
+    except Exception:
+        logger.exception("post_embed_background_failed", post_id=post_id)

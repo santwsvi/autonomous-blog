@@ -1,6 +1,7 @@
 """Generation API — trigger article generation and stream progress via SSE."""
 
 import asyncio
+import time
 import uuid
 
 import structlog
@@ -15,8 +16,23 @@ from app.services.generation_service import generate_article
 logger = structlog.get_logger()
 router = APIRouter(prefix="/generate", tags=["generation"])
 
-# In-memory progress store (per-job). In production, use Redis pub/sub.
+# In-memory progress store with TTL tracking.
 _progress: dict[str, asyncio.Queue] = {}
+_progress_created: dict[str, float] = {}
+_bg_tasks: set[asyncio.Task] = set()
+
+PROGRESS_TTL_SECONDS = 600  # 10 min
+
+
+def _cleanup_stale_progress() -> None:
+    """Remove progress queues older than TTL."""
+    now = time.monotonic()
+    stale = [k for k, t in _progress_created.items() if now - t > PROGRESS_TTL_SECONDS]
+    for k in stale:
+        _progress.pop(k, None)
+        _progress_created.pop(k, None)
+    if stale:
+        logger.info("progress_cleanup", removed=len(stale))
 
 
 @router.post("", status_code=status.HTTP_202_ACCEPTED)
@@ -30,15 +46,15 @@ async def create_generation(body: GenerationCreate, db: Db, _user: Auth) -> dict
 
     job_id = str(job.id)
 
-    # Create progress queue for SSE
-    _progress[job_id] = asyncio.Queue()
+    # Cleanup stale entries before adding new
+    _cleanup_stale_progress()
 
-    # Start generation in background (store ref to prevent GC)
-    _tasks: set = getattr(create_generation, "_tasks", set())
-    task = asyncio.create_task(_run_generation(job_id=job_id, prompt=body.prompt, db_url=None))
-    _tasks.add(task)
-    task.add_done_callback(_tasks.discard)
-    create_generation._tasks = _tasks  # type: ignore[attr-defined]
+    _progress[job_id] = asyncio.Queue()
+    _progress_created[job_id] = time.monotonic()
+
+    task = asyncio.create_task(_run_generation(job_id=job_id, prompt=body.prompt))
+    _bg_tasks.add(task)
+    task.add_done_callback(_bg_tasks.discard)
 
     logger.info("generation_started", job_id=job_id)
 
@@ -72,6 +88,7 @@ async def stream_progress(job_id: str, _user: Auth) -> StreamingResponse:
                     break
         finally:
             _progress.pop(job_id, None)
+            _progress_created.pop(job_id, None)
 
     return StreamingResponse(
         event_stream(),
@@ -98,7 +115,7 @@ async def get_generation(job_id: str, db: Db) -> GenerationResponse:
     return GenerationResponse.model_validate(job)
 
 
-async def _run_generation(*, job_id: str, prompt: str, db_url: str | None) -> None:
+async def _run_generation(*, job_id: str, prompt: str) -> None:
     """Background task that runs the generation pipeline."""
     import json
 

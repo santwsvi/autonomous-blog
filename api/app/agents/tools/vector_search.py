@@ -9,7 +9,11 @@ logger = structlog.get_logger()
 
 
 async def vector_search(*, query: str, db: AsyncSession, limit: int = 5) -> str:
-    """Search published posts for relevant context. Returns formatted text."""
+    """Search published posts for relevant context. Returns formatted text.
+
+    Groups chunks by post — includes all relevant chunks per post,
+    not just the first one.
+    """
     try:
         results = await search_similar(query=query, db=db, limit=limit)
 
@@ -17,15 +21,24 @@ async def vector_search(*, query: str, db: AsyncSession, limit: int = 5) -> str:
             logger.info("vector_search_no_results", query=query[:100])
             return ""
 
-        context_parts = []
-        seen_posts = set()
+        # Group chunks by post, preserving order
+        posts: dict[str, list[dict]] = {}
         for r in results:
-            if r["slug"] not in seen_posts:
-                context_parts.append(f"### From: {r['title']} (/{r['slug']})\n{r['chunk_text']}")
-                seen_posts.add(r["slug"])
+            slug = r["slug"]
+            if slug not in posts:
+                posts[slug] = []
+            posts[slug].append(r)
+
+        context_parts = []
+        for slug, chunks in posts.items():
+            title = chunks[0]["title"]
+            # Sort chunks by index for coherent reading order
+            chunks.sort(key=lambda c: c["chunk_index"])
+            text = "\n\n".join(c["chunk_text"] for c in chunks)
+            context_parts.append(f"### From: {title} (/{slug})\n{text}")
 
         context = "\n\n---\n\n".join(context_parts)
-        logger.info("vector_search_results", query=query[:100], results=len(results), unique_posts=len(seen_posts))
+        logger.info("vector_search_results", query=query[:100], chunks=len(results), unique_posts=len(posts))
         return context
 
     except Exception:

@@ -102,14 +102,6 @@ async def generate_article(
             status=PostStatus.DRAFT,
         )
 
-        # Generate embeddings for the new post (non-blocking — failure is acceptable)
-        try:
-            from app.services.embedding_service import embed_post
-
-            await embed_post(post_id=post.id, content=result_state.final_mdx, db=db)
-        except Exception:
-            logger.warning("embed_post_failed_during_generation", post_id=str(post.id))
-
         job.post_id = post.id
         job.status = JobStatus.COMPLETED
         job.quality_scores = result_state.quality_scores.model_dump()
@@ -119,6 +111,15 @@ async def generate_article(
         job.duration_seconds = duration
         job.completed_at = datetime.now(UTC)
         await db.commit()
+
+        # Embed after commit — failure doesn't affect the post/job
+        try:
+            from app.services.embedding_service import embed_post
+
+            await embed_post(post_id=post.id, content=result_state.final_mdx, db=db)
+            await db.commit()
+        except Exception:
+            logger.warning("embed_post_failed_during_generation", post_id=str(post.id))
 
         logger.info(
             "generation_completed",

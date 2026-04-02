@@ -4,10 +4,35 @@ Todas as mudanças notáveis do projeto serão documentadas aqui.
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
-## [0.2.0] — Em desenvolvimento
+## [0.2.1] — 2026-04-02
+
+### Corrigido
+- **SearchDialog** não renderizado no layout (import sem uso no JSX)
+- **IVFFlat** index com 0 rows retornava vazio — removido, busca exata é suficiente pra <1000 rows
+- **Embedding síncrono** no request HTTP — movido pra background task (fire-and-forget)
+- **Search API** sem rate limiting — adicionado 10 req/min por IP (protege créditos OpenAI)
+- **Chunk params** inconsistentes — constantes mortas removidas, function usa defaults do módulo
+- **_progress dict** memory leak — TTL de 10min com cleanup automático
+- **Vector search** dedup perdia chunks — agora agrupa todos os chunks por post
+- **Tags filter** na home page não funcionava — searchParams lidos e passados pro getPosts
+- **embed_text** sem validação de input vazio — adicionado guard
+- **CHANGELOG** não atualizado na v0.2.0
+
+### Adicionado
+- Testes de chunking (`test_embedding_chunking.py` — 7 testes)
+
+## [0.2.0] — 2026-04-02
 
 ### Fase 3 — RAG + Search
-- (em breve)
+#### Adicionado
+- pgvector no PostgreSQL (embeddings com cosine similarity)
+- Embedding service com chunking e auto-embed ao publicar
+- RAG context no Researcher (degradação graceful)
+- Search API: GET /api/v1/search?q=...
+- Search Dialog (Cmd+K) no frontend
+- Tags page (/tags)
+- 29 testes unitários (editor parsers, publisher sanitize, auth service)
+- FK em generation_jobs.post_id
 
 ## [0.1.0] — 2026-04-02
 
