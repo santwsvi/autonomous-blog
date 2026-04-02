@@ -1,6 +1,5 @@
 """Generation service — orchestrates article generation and persistence."""
 
-import re
 import time
 from collections.abc import Callable, Coroutine
 from datetime import UTC, datetime
@@ -13,6 +12,7 @@ from app.agents.graph import generation_graph
 from app.agents.state import AgentState
 from app.models.post import GenerationJob, JobStatus, PostStatus
 from app.repositories.post_repository import PostRepository
+from app.utils import generate_slug
 
 logger = structlog.get_logger()
 
@@ -88,7 +88,7 @@ async def generate_article(
 
         # Handle slug collision
         repo = PostRepository(db)
-        slug = result_state.seo_slug or _simple_slug(result_state.topic)
+        slug = result_state.seo_slug or generate_slug(result_state.topic)
         slug = await _ensure_unique_slug(repo, slug)
 
         post = await repo.create(
@@ -169,10 +169,3 @@ def _editor_progress(output: dict) -> str:
     if approved:
         return f"Score: {overall:.2f} — aprovado!"
     return f"Score: {overall:.2f} — revisando..."
-
-
-def _simple_slug(text: str) -> str:
-    slug = text.lower().strip()
-    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
-    slug = re.sub(r"[\s_]+", "-", slug)
-    return slug.strip("-")[:80]

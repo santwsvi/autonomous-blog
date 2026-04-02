@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     llm_ssl_verify: bool = True
 
+    # Observability
+    sentry_dsn: str = ""
+
     # App
     app_name: str = "Autonomous Blog API"
     log_level: str = "INFO"

@@ -10,6 +10,7 @@ import re
 import structlog
 
 from app.agents.state import AgentState
+from app.utils import generate_slug
 
 logger = structlog.get_logger()
 
@@ -31,8 +32,7 @@ async def publisher(state: AgentState) -> dict:
     word_count = len(sanitized.split())
     reading_time = max(1, math.ceil(word_count / 200))
 
-    slug = state.seo_slug or _generate_slug(state.topic)
-    # Ensure slug uniqueness will be handled by the API layer
+    slug = state.seo_slug or generate_slug(state.topic)
 
     logger.info(
         "publisher_done",
@@ -53,28 +53,10 @@ MARKDOWN_WRAPPER = re.compile(r"^```(?:markdown|md|mdx)\s*\n([\s\S]*?)\n```\s*$"
 def _sanitize_mdx(content: str) -> str:
     """Remove dangerous HTML/JS patterns, frontmatter, and LLM wrapper artifacts."""
     result = content.strip()
-    # Strip ```markdown ... ``` wrapper that LLMs sometimes add
     match = MARKDOWN_WRAPPER.match(result)
     if match:
         result = match.group(1)
-    # Strip frontmatter
     result = FRONTMATTER_PATTERN.sub("", result)
-    # Strip dangerous patterns
     for pattern in BLOCKED_PATTERNS:
         result = pattern.sub("", result)
     return result.strip()
-
-
-def _generate_slug(topic: str) -> str:
-    """Generate a URL-friendly slug from the topic."""
-    slug = topic.lower().strip()
-    slug = re.sub(r"[àáâãäå]", "a", slug)
-    slug = re.sub(r"[èéêë]", "e", slug)
-    slug = re.sub(r"[ìíîï]", "i", slug)
-    slug = re.sub(r"[òóôõö]", "o", slug)
-    slug = re.sub(r"[ùúûü]", "u", slug)
-    slug = re.sub(r"[ç]", "c", slug)
-    slug = re.sub(r"[^a-z0-9\s-]", "", slug)
-    slug = re.sub(r"[\s_]+", "-", slug)
-    slug = re.sub(r"-+", "-", slug)
-    return slug.strip("-")[:80]

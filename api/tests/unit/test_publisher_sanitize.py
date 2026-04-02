@@ -1,6 +1,7 @@
-"""Tests for publisher MDX sanitization."""
+"""Tests for publisher MDX sanitization and slug generation."""
 
-from app.agents.nodes.publisher import _generate_slug, _sanitize_mdx
+from app.agents.nodes.publisher import _sanitize_mdx
+from app.utils import generate_slug
 
 
 class TestSanitizeMdx:
@@ -54,17 +55,17 @@ class TestSanitizeMdx:
 
 class TestGenerateSlug:
     def test_basic_slug(self):
-        assert _generate_slug("Hello World") == "hello-world"
+        assert generate_slug("Hello World") == "hello-world"
 
     def test_accented_characters(self):
-        assert _generate_slug("Programação em Python") == "programacao-em-python"
+        assert generate_slug("Programação em Python") == "programacao-em-python"
 
     def test_special_characters(self):
-        assert _generate_slug("What's Next? (2024)") == "whats-next-2024"
+        assert generate_slug("What's Next? (2024)") == "whats-next-2024"
 
     def test_max_length(self):
         long_title = "a " * 100
-        assert len(_generate_slug(long_title)) <= 80
+        assert len(generate_slug(long_title)) <= 80
 
     def test_strips_leading_trailing_hyphens(self):
-        assert _generate_slug("  --hello--  ") == "hello"
+        assert generate_slug("  --hello--  ") == "hello"

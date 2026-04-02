@@ -81,6 +81,7 @@ async def update_post(post_id: uuid.UUID, body: PostUpdate, repo: PostRepo, _use
     content_changed = "content_mdx" in update_data
     if is_now_published and (was_draft or content_changed):
         _schedule_embedding(str(post.id), post.content_mdx)
+        _schedule_revalidation(post.slug)
 
     logger.info("post_updated", post_id=str(post.id))
     return PostResponse.model_validate(post)
@@ -95,16 +96,25 @@ async def delete_post(post_id: uuid.UUID, repo: PostRepo, _user: Auth) -> None:
     logger.info("post_deleted", post_id=str(post.id))
 
 
-# --- Background embedding ---
+# --- Background tasks ---
 
 _bg_tasks: set[asyncio.Task] = set()
 
 
-def _schedule_embedding(post_id: str, content: str) -> None:
-    """Fire-and-forget embedding — doesn't block the HTTP response."""
-    task = asyncio.create_task(_embed_in_background(post_id, content))
+def _schedule_bg(coro) -> None:
+    task = asyncio.create_task(coro)
     _bg_tasks.add(task)
     task.add_done_callback(_bg_tasks.discard)
+
+
+def _schedule_embedding(post_id: str, content: str) -> None:
+    """Fire-and-forget embedding — doesn't block the HTTP response."""
+    _schedule_bg(_embed_in_background(post_id, content))
+
+
+def _schedule_revalidation(slug: str) -> None:
+    """Fire-and-forget ISR revalidation — calls the frontend webhook."""
+    _schedule_bg(_revalidate_in_background(slug))
 
 
 async def _embed_in_background(post_id: str, content: str) -> None:
@@ -118,3 +128,35 @@ async def _embed_in_background(post_id: str, content: str) -> None:
             logger.info("post_embedded_background", post_id=post_id)
     except Exception:
         logger.exception("post_embed_background_failed", post_id=post_id)
+
+
+async def _revalidate_in_background(slug: str) -> None:
+    import hashlib
+    import hmac
+    import json
+
+    import httpx
+
+    from app.config import settings
+
+    try:
+        body = json.dumps({"slug": slug})
+        signature = hmac.new(
+            settings.revalidation_secret.encode(),
+            body.encode(),
+            hashlib.sha256,
+        ).hexdigest()
+
+        async with httpx.AsyncClient(verify=settings.llm_ssl_verify) as client:
+            resp = await client.post(
+                f"{settings.frontend_url}/api/revalidate",
+                content=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Revalidation-Signature": signature,
+                },
+                timeout=10,
+            )
+            logger.info("isr_revalidation_sent", slug=slug, status=resp.status_code)
+    except Exception:
+        logger.warning("isr_revalidation_failed", slug=slug)
