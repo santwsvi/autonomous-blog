@@ -51,7 +51,7 @@ async def embed_post(*, post_id: uuid.UUID, content: str, db: AsyncSession) -> i
             await db.execute(
                 text("""
                     INSERT INTO embeddings (id, post_id, chunk_index, chunk_text, vector_id, token_count, embedding)
-                    VALUES (gen_random_uuid(), :post_id, :chunk_index, :chunk_text, :vector_id, :token_count, :embedding::vector)
+                    VALUES (gen_random_uuid(), :post_id, :chunk_index, :chunk_text, :vector_id, :token_count, cast(:embedding AS vector))
                 """),
                 {
                     "post_id": post_id,
@@ -89,13 +89,13 @@ async def search_similar(
         text(f"""
             SELECT e.post_id, e.chunk_text, e.chunk_index,
                    p.title, p.slug,
-                   1 - (e.embedding <=> :query_vec::vector) AS similarity
+                   1 - (e.embedding <=> cast(:query_vec AS vector)) AS similarity
             FROM embeddings e
             JOIN posts p ON p.id = e.post_id
             WHERE e.embedding IS NOT NULL
               AND p.status = 'published'
               {exclude_clause}
-            ORDER BY e.embedding <=> :query_vec::vector
+            ORDER BY e.embedding <=> cast(:query_vec AS vector)
             LIMIT :lim
         """),
         params,
