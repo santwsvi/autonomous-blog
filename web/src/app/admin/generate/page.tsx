@@ -11,8 +11,13 @@ export default function AdminGeneratePage() {
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
   const progressRef = useRef<HTMLDivElement>(null);
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+  const [token, setToken] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setToken(localStorage.getItem("admin_token"));
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     progressRef.current?.scrollTo(0, progressRef.current.scrollHeight);
@@ -79,6 +84,8 @@ export default function AdminGeneratePage() {
       setGenerating(false);
     }
   };
+
+  if (!mounted) return null;
 
   if (!token) {
     return (

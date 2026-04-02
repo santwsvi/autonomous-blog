@@ -17,14 +17,18 @@ interface Post {
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+  const [token, setToken] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setToken(localStorage.getItem("admin_token"));
+    setMounted(true);
+  }, []);
 
   const fetchPosts = async () => {
-    if (!token) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/v1/posts?per_page=50`, {});
+      const res = await fetch(`${API_URL}/api/v1/posts?per_page=50`);
       if (res.ok) {
         const data = await res.json();
         setPosts(data.items);
@@ -35,8 +39,8 @@ export default function AdminPostsPage() {
   };
 
   useEffect(() => {
-    fetchPosts();
-  }, []);
+    if (mounted) fetchPosts();
+  }, [mounted]);
 
   const updateStatus = async (postId: string, status: string) => {
     if (!token) return;
@@ -59,6 +63,8 @@ export default function AdminPostsPage() {
     });
     fetchPosts();
   };
+
+  if (!mounted) return null;
 
   if (!token) {
     return (

@@ -30,9 +30,16 @@ interface Metrics {
 export default function AdminPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [error, setError] = useState("");
-  const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+  const [token, setToken] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setToken(localStorage.getItem("admin_token"));
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     if (!token) {
       setError("Faça login primeiro.");
       return;
@@ -43,7 +50,9 @@ export default function AdminPage() {
       .then((r) => (r.ok ? r.json() : Promise.reject("Unauthorized")))
       .then(setMetrics)
       .catch(() => setError("Erro ao carregar métricas. Verifique o login."));
-  }, [token]);
+  }, [token, mounted]);
+
+  if (!mounted) return null;
 
   if (error) {
     return (
