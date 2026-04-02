@@ -46,3 +46,4 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 - SEO Optimizer recebia 500 chars — aumentado para 1500
 - `rehype-raw` instalado mas não usado — removido
 - Slug collision na geração — `_ensure_unique_slug` com suffix incremental
+
