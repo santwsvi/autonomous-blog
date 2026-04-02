@@ -4,7 +4,7 @@ import uuid
 import structlog
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.api.deps import Auth, PostRepo
+from app.api.deps import Auth, Db, PostRepo
 from app.models.post import PostStatus
 from app.schemas.post import (
     PostCreate,
@@ -58,7 +58,7 @@ async def create_post(body: PostCreate, repo: PostRepo, _user: Auth) -> PostResp
 
 
 @router.patch("/{post_id}", response_model=PostResponse)
-async def update_post(post_id: uuid.UUID, body: PostUpdate, repo: PostRepo, _user: Auth) -> PostResponse:
+async def update_post(post_id: uuid.UUID, body: PostUpdate, repo: PostRepo, db: Db, _user: Auth) -> PostResponse:
     post = await repo.get_by_id(post_id)
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
@@ -72,7 +72,21 @@ async def update_post(post_id: uuid.UUID, body: PostUpdate, repo: PostRepo, _use
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Slug already exists")
 
+    was_draft = post.status != PostStatus.PUBLISHED
     post = await repo.update(post, **update_data)
+
+    # Auto-embed when publishing (or when content changes on a published post)
+    is_now_published = post.status == PostStatus.PUBLISHED
+    content_changed = "content_mdx" in update_data
+    if is_now_published and (was_draft or content_changed):
+        try:
+            from app.services.embedding_service import embed_post
+
+            await embed_post(post_id=post.id, content=post.content_mdx, db=db)
+            logger.info("post_embedded_on_publish", post_id=str(post.id))
+        except Exception:
+            logger.warning("post_embed_failed_on_publish", post_id=str(post.id))
+
     logger.info("post_updated", post_id=str(post.id))
     return PostResponse.model_validate(post)
 

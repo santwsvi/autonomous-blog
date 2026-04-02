@@ -42,10 +42,22 @@ async def generate_article(
         await on_progress("Iniciando geração...")
 
     try:
+        # Fetch RAG context from existing posts (graceful degradation)
+        rag_context = ""
+        try:
+            from app.agents.tools.vector_search import vector_search
+
+            rag_context = await vector_search(query=topic, db=db, limit=5)
+            if rag_context and on_progress:
+                await on_progress("Contexto de posts anteriores carregado.")
+        except Exception:
+            logger.warning("rag_context_failed", job_id=job_id)
+
         initial_state = AgentState(
             topic=topic,
             instructions=instructions,
             language=language,
+            rag_context=rag_context,
         )
 
         if on_progress:
@@ -89,6 +101,14 @@ async def generate_article(
             language=result_state.language,
             status=PostStatus.DRAFT,
         )
+
+        # Generate embeddings for the new post (non-blocking — failure is acceptable)
+        try:
+            from app.services.embedding_service import embed_post
+
+            await embed_post(post_id=post.id, content=result_state.final_mdx, db=db)
+        except Exception:
+            logger.warning("embed_post_failed_during_generation", post_id=str(post.id))
 
         job.post_id = post.id
         job.status = JobStatus.COMPLETED

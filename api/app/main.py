@@ -11,6 +11,7 @@ from slowapi.util import get_remote_address
 from app.api.auth import router as auth_router
 from app.api.v1.generate import router as generate_router
 from app.api.v1.posts import router as posts_router
+from app.api.v1.search import router as search_router
 from app.api.webhooks import router as webhooks_router
 from app.config import settings
 from app.middleware.security_headers import SecurityHeadersMiddleware
@@ -83,6 +84,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 app.include_router(auth_router, prefix="/api")
 app.include_router(posts_router, prefix="/api/v1")
 app.include_router(generate_router, prefix="/api/v1")
+app.include_router(search_router, prefix="/api/v1")
 app.include_router(webhooks_router, prefix="/api")
 
 

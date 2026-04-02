@@ -22,6 +22,9 @@ class AgentState(BaseModel):
     instructions: str = ""
     language: str = "pt-BR"
 
+    # RAG context (injected before graph runs)
+    rag_context: str = ""
+
     # Researcher output
     research_context: str = ""
     sources: list[str] = Field(default_factory=list)
