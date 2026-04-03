@@ -1,27 +1,30 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function AdminGeneratePage() {
+  const { token, isReady, fetchWithAuth } = useAdminAuth();
   const [prompt, setPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<string[]>([]);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState("");
   const progressRef = useRef<HTMLDivElement>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setToken(localStorage.getItem("admin_token"));
-    setMounted(true);
-  }, []);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     progressRef.current?.scrollTo(0, progressRef.current.scrollHeight);
   }, [progress]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   const handleGenerate = async () => {
     if (!token || !prompt.trim()) return;
@@ -31,18 +34,14 @@ export default function AdminGeneratePage() {
     setError("");
 
     try {
-      // Start generation
-      const res = await fetch(`${API_URL}/api/v1/generate`, {
+      const res = await fetchWithAuth(`${API_URL}/api/v1/generate`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
 
       if (!res.ok) {
-        setError("Falha ao iniciar geração.");
+        setError(res.status === 401 ? "Sessão expirada. Faça login novamente." : "Falha ao iniciar geração.");
         setGenerating(false);
         return;
       }
@@ -50,22 +49,21 @@ export default function AdminGeneratePage() {
       const { job_id } = await res.json();
       setProgress((p) => [...p, "Geração iniciada..."]);
 
-      // Poll status
-      const poll = setInterval(async () => {
+      pollRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(
-            `${API_URL}/api/v1/generate/${job_id}`
-          );
+          const statusRes = await fetch(`${API_URL}/api/v1/generate/${job_id}`);
           if (!statusRes.ok) return;
           const data = await statusRes.json();
 
           if (data.status === "completed") {
-            clearInterval(poll);
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
             setResult(data);
             setProgress((p) => [...p, "Artigo gerado com sucesso!"]);
             setGenerating(false);
           } else if (data.status === "failed") {
-            clearInterval(poll);
+            if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
             setError(data.error_message || "Geração falhou.");
             setGenerating(false);
           } else if (data.status === "running") {
@@ -76,7 +74,7 @@ export default function AdminGeneratePage() {
             });
           }
         } catch {
-          // Polling error, continue
+          // Polling error — continue
         }
       }, 5000);
     } catch {
@@ -85,15 +83,8 @@ export default function AdminGeneratePage() {
     }
   };
 
-  if (!mounted) return null;
-
-  if (!token) {
-    return (
-      <p className="text-muted-foreground">
-        Faça login na aba Overview primeiro.
-      </p>
-    );
-  }
+  if (!isReady) return null;
+  if (!token) return <p className="text-muted-foreground">Faça login na aba Overview primeiro.</p>;
 
   return (
     <div>
@@ -101,9 +92,7 @@ export default function AdminGeneratePage() {
 
       <div className="max-w-2xl space-y-4">
         <div>
-          <label className="text-sm font-medium mb-1 block">
-            Sobre o que escrever?
-          </label>
+          <label className="text-sm font-medium mb-1 block">Sobre o que escrever?</label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -123,14 +112,9 @@ export default function AdminGeneratePage() {
         </button>
 
         {progress.length > 0 && (
-          <div
-            ref={progressRef}
-            className="rounded-md border p-4 max-h-48 overflow-y-auto bg-muted/30"
-          >
+          <div ref={progressRef} className="rounded-md border p-4 max-h-48 overflow-y-auto bg-muted/30">
             {progress.map((msg, i) => (
-              <p key={i} className="text-sm text-muted-foreground">
-                {msg}
-              </p>
+              <p key={i} className="text-sm text-muted-foreground">{msg}</p>
             ))}
           </div>
         )}
@@ -143,18 +127,13 @@ export default function AdminGeneratePage() {
 
         {result && (
           <div className="rounded-md border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20">
-            <p className="text-sm font-medium text-green-700 dark:text-green-300">
-              Artigo gerado!
-            </p>
+            <p className="text-sm font-medium text-green-700 dark:text-green-300">Artigo gerado!</p>
             <p className="text-sm text-green-600 dark:text-green-400 mt-1">
               Score: {(result.quality_scores as Record<string, number>)?.overall?.toFixed(2) || "—"} |
               Iterações: {String(result.iterations)} |
               Duração: {String(result.duration_seconds)}s
             </p>
-            <a
-              href={`/admin/posts`}
-              className="text-sm text-green-600 underline mt-2 inline-block dark:text-green-400"
-            >
+            <a href="/admin/posts" className="text-sm text-green-600 underline mt-2 inline-block dark:text-green-400">
               Ver nos posts
             </a>
           </div>

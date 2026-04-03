@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -15,15 +16,10 @@ interface Post {
 }
 
 export default function AdminPostsPage() {
+  const { token, isReady, fetchWithAuth } = useAdminAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setToken(localStorage.getItem("admin_token"));
-    setMounted(true);
-  }, []);
+  const [feedback, setFeedback] = useState("");
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -39,44 +35,51 @@ export default function AdminPostsPage() {
   };
 
   useEffect(() => {
-    if (mounted) fetchPosts();
-  }, [mounted]);
+    if (isReady) fetchPosts();
+  }, [isReady]);
+
+  const showFeedback = (msg: string) => {
+    setFeedback(msg);
+    setTimeout(() => setFeedback(""), 3000);
+  };
 
   const updateStatus = async (postId: string, status: string) => {
-    if (!token) return;
-    await fetch(`${API_URL}/api/v1/posts/${postId}`, {
+    const res = await fetchWithAuth(`${API_URL}/api/v1/posts/${postId}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
+    if (res.ok) {
+      showFeedback(status === "published" ? "Post publicado!" : "Post despublicado.");
+    } else {
+      showFeedback("Erro ao atualizar post.");
+    }
     fetchPosts();
   };
 
   const deletePost = async (postId: string) => {
-    if (!token || !confirm("Tem certeza que deseja deletar este post?")) return;
-    await fetch(`${API_URL}/api/v1/posts/${postId}`, {
+    if (!confirm("Tem certeza que deseja deletar este post?")) return;
+    const res = await fetchWithAuth(`${API_URL}/api/v1/posts/${postId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
     });
+    if (res.ok) {
+      showFeedback("Post deletado.");
+    } else {
+      showFeedback("Erro ao deletar post.");
+    }
     fetchPosts();
   };
 
-  if (!mounted) return null;
-
-  if (!token) {
-    return (
-      <p className="text-muted-foreground">
-        Faça login na aba Overview primeiro.
-      </p>
-    );
-  }
+  if (!isReady) return null;
+  if (!token) return <p className="text-muted-foreground">Faça login na aba Overview primeiro.</p>;
 
   return (
     <div>
       <h2 className="text-xl font-semibold mb-4">Gerenciar Posts</h2>
+
+      {feedback && (
+        <div className="mb-4 rounded-md border px-4 py-2 text-sm bg-muted/50">{feedback}</div>
+      )}
 
       {loading ? (
         <p className="text-muted-foreground">Carregando...</p>
@@ -96,50 +99,28 @@ export default function AdminPostsPage() {
             <tbody>
               {posts.map((post) => (
                 <tr key={post.id} className="border-t">
-                  <td className="p-3 font-medium max-w-xs truncate">
-                    {post.title}
-                  </td>
+                  <td className="p-3 font-medium max-w-xs truncate">{post.title}</td>
                   <td className="p-3">
-                    <Badge
-                      variant={
-                        post.status === "published" ? "default" : "secondary"
-                      }
-                    >
-                      {post.status}
-                    </Badge>
+                    <Badge variant={post.status === "published" ? "default" : "secondary"}>{post.status}</Badge>
                   </td>
                   <td className="p-3">
                     <div className="flex gap-1 flex-wrap">
                       {post.tags.slice(0, 3).map((t) => (
-                        <Badge key={t} variant="outline" className="text-xs">
-                          {t}
-                        </Badge>
+                        <Badge key={t} variant="outline" className="text-xs">{t}</Badge>
                       ))}
                     </div>
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2">
                       {post.status === "draft" ? (
-                        <button
-                          onClick={() => updateStatus(post.id, "published")}
-                          className="text-xs text-green-600 hover:underline dark:text-green-400"
-                        >
-                          Publicar
-                        </button>
+                        <button onClick={() => updateStatus(post.id, "published")}
+                          className="text-xs text-green-600 hover:underline dark:text-green-400">Publicar</button>
                       ) : (
-                        <button
-                          onClick={() => updateStatus(post.id, "draft")}
-                          className="text-xs text-yellow-600 hover:underline dark:text-yellow-400"
-                        >
-                          Despublicar
-                        </button>
+                        <button onClick={() => updateStatus(post.id, "draft")}
+                          className="text-xs text-yellow-600 hover:underline dark:text-yellow-400">Despublicar</button>
                       )}
-                      <button
-                        onClick={() => deletePost(post.id)}
-                        className="text-xs text-red-600 hover:underline dark:text-red-400"
-                      >
-                        Deletar
-                      </button>
+                      <button onClick={() => deletePost(post.id)}
+                        className="text-xs text-red-600 hover:underline dark:text-red-400">Deletar</button>
                     </div>
                   </td>
                 </tr>

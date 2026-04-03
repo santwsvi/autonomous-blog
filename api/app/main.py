@@ -92,7 +92,8 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         error=str(exc),
         exc_info=exc,
     )
-    sentry_sdk.capture_exception(exc)
+    if settings.sentry_dsn:
+        sentry_sdk.capture_exception(exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error", "request_id": request_id},
