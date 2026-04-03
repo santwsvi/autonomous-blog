@@ -19,7 +19,6 @@ router = APIRouter(prefix="/generate", tags=["generation"])
 # In-memory progress store with TTL tracking.
 _progress: dict[str, asyncio.Queue] = {}
 _progress_created: dict[str, float] = {}
-_bg_tasks: set[asyncio.Task] = set()
 
 PROGRESS_TTL_SECONDS = 600  # 10 min
 
@@ -52,9 +51,9 @@ async def create_generation(body: GenerationCreate, db: Db, _user: Auth) -> dict
     _progress[job_id] = asyncio.Queue()
     _progress_created[job_id] = time.monotonic()
 
-    task = asyncio.create_task(_run_generation(job_id=job_id, prompt=body.prompt))
-    _bg_tasks.add(task)
-    task.add_done_callback(_bg_tasks.discard)
+    from app.services.background import schedule
+
+    schedule(_run_generation(job_id=job_id, prompt=body.prompt, language=body.language))
 
     logger.info("generation_started", job_id=job_id)
 
@@ -115,7 +114,7 @@ async def get_generation(job_id: str, db: Db) -> GenerationResponse:
     return GenerationResponse.model_validate(job)
 
 
-async def _run_generation(*, job_id: str, prompt: str) -> None:
+async def _run_generation(*, job_id: str, prompt: str, language: str = "pt-BR") -> None:
     """Background task that runs the generation pipeline."""
     import json
 
@@ -133,7 +132,7 @@ async def _run_generation(*, job_id: str, prompt: str) -> None:
                 job_id=job_id,
                 topic=prompt,
                 instructions="",
-                language="pt-BR",
+                language=language,
                 db=db,
                 on_progress=on_progress,
             )

@@ -1,4 +1,3 @@
-import asyncio
 import math
 import uuid
 
@@ -98,23 +97,19 @@ async def delete_post(post_id: uuid.UUID, repo: PostRepo, _user: Auth) -> None:
 
 # --- Background tasks ---
 
-_bg_tasks: set[asyncio.Task] = set()
-
-
-def _schedule_bg(coro) -> None:
-    task = asyncio.create_task(coro)
-    _bg_tasks.add(task)
-    task.add_done_callback(_bg_tasks.discard)
-
 
 def _schedule_embedding(post_id: str, content: str) -> None:
     """Fire-and-forget embedding — doesn't block the HTTP response."""
-    _schedule_bg(_embed_in_background(post_id, content))
+    from app.services.background import schedule
+
+    schedule(_embed_in_background(post_id, content))
 
 
 def _schedule_revalidation(slug: str) -> None:
     """Fire-and-forget ISR revalidation — calls the frontend webhook."""
-    _schedule_bg(_revalidate_in_background(slug))
+    from app.services.background import schedule
+
+    schedule(_revalidate_in_background(slug))
 
 
 async def _embed_in_background(post_id: str, content: str) -> None:

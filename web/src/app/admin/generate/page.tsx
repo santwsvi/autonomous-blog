@@ -8,6 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 export default function AdminGeneratePage() {
   const { token, isReady, fetchWithAuth } = useAdminAuth();
   const [prompt, setPrompt] = useState("");
+  const [language, setLanguage] = useState("pt-BR");
   const [generating, setGenerating] = useState(false);
   const [progress, setProgress] = useState<string[]>([]);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -37,7 +38,7 @@ export default function AdminGeneratePage() {
       const res = await fetchWithAuth(`${API_URL}/api/v1/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, language }),
       });
 
       if (!res.ok) {
@@ -101,6 +102,19 @@ export default function AdminGeneratePage() {
             className="w-full rounded-md border px-3 py-2 text-sm bg-background resize-none"
             disabled={generating}
           />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium mb-1 block">Idioma</label>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="rounded-md border px-3 py-2 text-sm bg-background"
+            disabled={generating}
+          >
+            <option value="pt-BR">Português (BR)</option>
+            <option value="en">English</option>
+          </select>
         </div>
 
         <button

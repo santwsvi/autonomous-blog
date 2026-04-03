@@ -4,6 +4,43 @@ Todas as mudanças notáveis do projeto serão documentadas aqui.
 
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/).
 
+## [0.4.0] — 2026-04-02
+
+### Fase 5 — Polish Final
+#### Adicionado
+- RSS feed (`/feed.xml`) com posts publicados
+- Open Graph images dinâmicas (`/og/[slug]`) via @vercel/og
+- Multi-idioma parcial: dropdown PT-BR/EN no formulário de geração
+- Seed script (`scripts/seed.py`) com post de boas-vindas
+- Background task helper compartilhado (`services/background.py`)
+
+#### Corrigido
+- Publisher agora retorna `word_count` e `reading_time_minutes` no state (debt de 3 reviews)
+- Background tasks duplicadas entre posts.py e generate.py (extraído pra helper)
+
+## [0.3.1] — 2026-04-02
+
+### Corrigido (review Fase 4)
+- Login form com feedback de erro (credenciais inválidas / erro de conexão)
+- JWT 401 interceptado no frontend (fetchWithAuth limpa token)
+- Sentry capture_exception condicional (só quando DSN configurado)
+- Polling do generate com cleanup no unmount (clearInterval via ref)
+- Botão de logout no admin layout
+- Hook `useAdminAuth` extraído (elimina duplicação em 3 pages)
+- Feedback visual nas ações do posts page
+- Analytics page placeholder removida
+- 10 testes do redact_sensitive adicionados
+
+## [0.3.0] — 2026-04-02
+
+### Fase 4 — Observability + Admin Funcional
+#### Adicionado
+- Request ID middleware + secret redaction no structlog + Sentry SDK
+- Metrics API (GET /api/v1/metrics): posts, gerações, custos LLM, embeddings
+- Admin dashboard funcional: overview com métricas, posts management, formulário de geração
+- Auto-revalidação ISR ao publicar post
+- `generate_slug` extraído pra `app/utils.py` (DRY)
+
 ## [0.2.1] — 2026-04-02
 
 ### Corrigido

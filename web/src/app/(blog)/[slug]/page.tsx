@@ -12,6 +12,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   try {
     const post = await getPostBySlug(slug);
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     return {
       title: post.title,
       description: post.excerpt || undefined,
@@ -21,6 +22,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         type: "article",
         publishedTime: post.published_at || post.created_at,
         tags: post.tags,
+        images: [`${siteUrl}/og/${slug}`],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: post.title,
+        description: post.excerpt || undefined,
+        images: [`${siteUrl}/og/${slug}`],
       },
     };
   } catch {

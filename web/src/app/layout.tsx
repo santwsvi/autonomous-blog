@@ -31,6 +31,11 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     siteName: "Victor Gabriel — Blog",
   },
+  alternates: {
+    types: {
+      "application/rss+xml": "/feed.xml",
+    },
+  },
   robots: {
     index: true,
     follow: true,

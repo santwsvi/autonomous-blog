@@ -43,6 +43,8 @@ async def publisher(state: AgentState) -> dict:
 
     return {
         "final_mdx": sanitized,
+        "word_count": word_count,
+        "reading_time_minutes": reading_time,
     }
 
 

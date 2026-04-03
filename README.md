@@ -142,11 +142,11 @@ autonomous-blog/
 
 ## Roadmap
 
-- [x] **Fase 1** — Fundação (FastAPI, Next.js, Auth, CRUD, SEO, Deploy config)
+- [x] **Fase 1** — Fundação (FastAPI, Next.js, Auth, CRUD, SEO)
 - [x] **Fase 2** — IA Core (LangGraph, 5 agentes, quality scoring, SSE streaming)
-- [ ] **Fase 3** — RAG + Search (embeddings, busca semântica, Cmd+K)
-- [ ] **Fase 4** — Observability (Prometheus, LangSmith, Sentry, OAuth2)
-- [ ] **Fase 5** — Features Avançadas (geração agendada, multi-idioma, RSS, OG images)
+- [x] **Fase 3** — RAG + Search (pgvector, busca semântica, Cmd+K, tags)
+- [x] **Fase 4** — Observability + Admin (Sentry, structlog, metrics, dashboard funcional)
+- [x] **Fase 5** — Polish Final (RSS, OG images, multi-idioma, seed, cleanup)
 
 ## Segurança
 

@@ -45,6 +45,8 @@ class AgentState(BaseModel):
 
     # Publisher output
     final_mdx: str = ""
+    word_count: int = 0
+    reading_time_minutes: int = 0
     post_id: str = ""
 
     # Control

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 class GenerationCreate(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=5000)
+    language: str = Field("pt-BR", pattern=r"^(pt-BR|en)$")
 
 
 class GenerationResponse(BaseModel):
