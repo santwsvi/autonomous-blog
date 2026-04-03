@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { getPostBySlug, getPosts } from "@/lib/api";
 import { PostContent } from "@/components/blog/post-content";
+import { TableOfContents } from "@/components/blog/table-of-contents";
+import { RelatedPosts } from "@/components/blog/related-posts";
+import { Comments } from "@/components/blog/comments";
 import type { Metadata } from "next";
 
 interface Props {
@@ -62,14 +65,21 @@ export default async function PostPage({ params }: Props) {
   }
 
   return (
-    <PostContent
-      title={post.title}
-      excerpt={post.excerpt}
-      contentMdx={post.content_mdx}
-      tags={post.tags}
-      readingTimeMinutes={post.reading_time_minutes}
-      publishedAt={post.published_at}
-      createdAt={post.created_at}
-    />
+    <div className="container mx-auto max-w-5xl px-4 md:px-8 py-8 flex gap-8">
+      <div className="flex-1 min-w-0">
+        <PostContent
+          title={post.title}
+          excerpt={post.excerpt}
+          contentMdx={post.content_mdx}
+          tags={post.tags}
+          readingTimeMinutes={post.reading_time_minutes}
+          publishedAt={post.published_at}
+          createdAt={post.created_at}
+        />
+        <RelatedPosts slug={slug} />
+        <Comments />
+      </div>
+      <TableOfContents content={post.content_mdx} />
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import { Header } from "@/components/shared/header";
 import { Footer } from "@/components/shared/footer";
 import { ThemeProvider } from "@/components/shared/theme-provider";
 import { SearchDialog } from "@/components/shared/search-dialog";
+import { ScrollToTop } from "@/components/shared/scroll-to-top";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -62,6 +63,7 @@ export default function RootLayout({
         >
           <Header />
           <SearchDialog />
+          <ScrollToTop />
           <main className="flex-1">{children}</main>
           <Footer />
         </ThemeProvider>

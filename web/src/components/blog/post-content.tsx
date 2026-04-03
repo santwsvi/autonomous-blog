@@ -44,7 +44,7 @@ export function PostContent({
   const cleanContent = stripFrontmatter(contentMdx);
 
   return (
-    <article className="container mx-auto max-w-3xl px-4 md:px-8 py-8">
+    <article className="max-w-3xl">
       <header className="mb-8">
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
           <time dateTime={date}>{formattedDate}</time>
