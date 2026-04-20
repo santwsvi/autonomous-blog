@@ -1,8 +1,9 @@
 # Autonomous Blog
 
-Blog pessoal técnico com geração de conteúdo assistida por IA multiagente.
 
-## Arquitetura
+
+Personal technical blog with multi-agent AI-assisted content generation.
+## Architecture
 
 ```
 ┌──────────────────┐     REST + SSE     ┌──────────────────┐
@@ -22,7 +23,7 @@ Blog pessoal técnico com geração de conteúdo assistida por IA multiagente.
                                 jobs)        queue)     gpt-4o)
 ```
 
-### Pipeline de Geração (LangGraph)
+### Generation Pipeline (LangGraph)
 
 ```
 Researcher (gpt-4o-mini)
@@ -30,47 +31,47 @@ Researcher (gpt-4o-mini)
     → Editor (gpt-4o) — scoring 5 dimensões
         ↑ score < 0.85? loop (max 3x)
     → SEO Optimizer (gpt-4o-mini)
-    → Publisher (determinístico — sanitiza MDX)
-    → Post salvo como draft → autor aprova
+    → Publisher (deterministic — sanitized MDX)
+    → Saved post for draft → writer approves
 ```
 
 ## Stack
 
-| Camada | Tecnologia | Custo/mês |
+| Layer | Technology | Coust/month |
 |--------|-----------|-----------|
 | Frontend | Next.js 16 + shadcn/ui + Tailwind | $0 (Vercel Hobby) |
 | Backend | FastAPI + Pydantic v2 + SQLAlchemy async | $5 (Railway Hobby) |
 | IA | LangGraph 1.x + OpenAI API | ~$3 |
 | Database | PostgreSQL 16 | Incl. Railway |
 | Cache | Redis 7 (Upstash free) | $0 |
-| **Total** | | **~$8/mês** |
+| **Total** | | **~$8/month** |
 
-## Setup Local
+## Local Setup
 
-### Pré-requisitos
+### Pre-requirements
 
-- Python 3.13+ e [uv](https://docs.astral.sh/uv/)
-- Node.js 20+ e npm
+- Python 3.13+ and [uv](https://docs.astral.sh/uv/)
+- Node.js 20+ and npm
 - PostgreSQL 16
 - Redis 7
-- (Opcional) Podman ou Docker
+- (Optional) Podman or Docker
 
 ### Backend
 
 ```bash
 cd api
 cp .env.example .env
-# Editar .env com suas credenciais (OPENAI_API_KEY, ADMIN_PASSWORD_HASH, etc)
+# Edit .env with your own credentials (OPENAI_API_KEY, ADMIN_PASSWORD_HASH, etc)
 
-# Com Podman/Docker (PostgreSQL + Redis)
+# With Podman/Docker (PostgreSQL + Redis)
 make infra
 
-# Ou usar PG/Redis locais e ajustar DATABASE_URL e REDIS_URL no .env
+# Use local PG/Redis to adjust DATABASE_URL and REDIS_URL at .env
 
 # Migrations
 make migrate
 
-# Rodar API (porta 8000)
+# API run (porta 8000)
 make dev
 ```
 
@@ -80,34 +81,34 @@ make dev
 cd web
 cp .env.example .env.local
 
-# Instalar dependências
+# Install dependencies
 npm install
 
-# Rodar dev server (porta 3000)
+# Run dev server (porta 3000)
 npm run dev
 ```
 
-### Gerar um artigo
+### Generate an article
 
 ```bash
 # Login
 TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"admin@blog.com","password":"SUA_SENHA"}' \
+  -d '{"email":"admin@blog.com","password":"YOUR_PASSWORD"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
-# Disparar geração
+# Generate
 curl -s -X POST http://localhost:8000/api/v1/generate \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
-  -d '{"prompt": "Escreva sobre X"}' | python3 -m json.tool
+  -d '{"prompt": "Write about X"}' | python3 -m json.tool
 
-# Acompanhar progresso (substituir JOB_ID)
+# Progress accomplishment (change JOB_ID)
 curl -N http://localhost:8000/api/v1/generate/JOB_ID/stream \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## Estrutura do Projeto
+## Project Structure
 
 ```
 autonomous-blog/
@@ -115,7 +116,7 @@ autonomous-blog/
 │   ├── app/
 │   │   ├── agents/             # LangGraph pipeline
 │   │   │   ├── nodes/          # Researcher, Writer, Editor, SEO, Publisher
-│   │   │   ├── prompts/        # Prompts versionados (.md)
+│   │   │   ├── prompts/        # Versioned prompts (.md)
 │   │   │   ├── graph.py        # StateGraph definition
 │   │   │   └── state.py        # AgentState (Pydantic)
 │   │   ├── api/                # FastAPI routes
@@ -142,22 +143,22 @@ autonomous-blog/
 
 ## Roadmap
 
-- [x] **Fase 1** — Fundação (FastAPI, Next.js, Auth, CRUD, SEO)
-- [x] **Fase 2** — IA Core (LangGraph, 5 agentes, quality scoring, SSE streaming)
-- [x] **Fase 3** — RAG + Search (pgvector, busca semântica, Cmd+K, tags)
-- [x] **Fase 4** — Observability + Admin (Sentry, structlog, metrics, dashboard funcional)
-- [x] **Fase 5** — Polish Final (RSS, OG images, multi-idioma, seed, cleanup)
+- [x] **Phase 1** — Foundation (FastAPI, Next.js, Auth, CRUD, SEO)
+- [x] **Phase 2** — AI Core (LangGraph, 5 agentes, quality scoring, SSE streaming)
+- [x] **Phase 3** — RAG + Search (pgvector, busca semântica, Cmd+K, tags)
+- [x] **Phase 4** — Observability + Admin (Sentry, structlog, metrics, dashboard funcional)
+- [x] **Phase 5** — Final Polish (RSS, OG images, multi-language, seed, cleanup)
 
-## Segurança
+## Security
 
-- JWT com refresh token rotation + Redis blocklist
+- JWT with refresh token rotation + Redis blocklist
 - Security headers: HSTS, X-Frame-Options, CSP, Referrer-Policy
-- MDX sanitizado: strip script/iframe/event handlers/frontmatter
+- Sanitized MDX: strip script/iframe/event handlers/frontmatter
 - HMAC-SHA256 no webhook ISR
-- Rate limiting por IP (slowapi)
-- Enums PostgreSQL + CHECK constraints
-- Secrets em variáveis de ambiente (nunca no código)
+- Rate limiting for IP (slowapi)
+- Enums PostgreSQL + Constraints check
+- Secrets for each environment variable (NEVER in the code)
 
 ## Licença
 
-Projeto pessoal. Todos os direitos reservados.
+Personal project. All rights reserved.
