@@ -1,6 +1,6 @@
 # Autonomous Blog
 
-
+<img width="1470" height="712" alt="Captura de Tela 2026-04-20 às 12 31 12" src="https://github.com/user-attachments/assets/ea907943-e09f-4e13-8253-494f57a491a6" />
 
 Personal technical blog with multi-agent AI-assisted content generation.
 ## Architecture
